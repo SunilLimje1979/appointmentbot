@@ -15,6 +15,8 @@ from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.http import JsonResponse
 import json
+from django.db import connection
+import time
 
 from medicify_project.models import * 
 from medicify_project.serializers import *
@@ -268,3 +270,264 @@ def fi_get_useraction_by_locationtoken_userid(request):
             res = {'message_code': 999, 'message_text': f"Error: {str(e)}"}
 
     return Response(res, status=status.HTTP_200_OK)
+
+
+###############################################################fi_check_replacement
+
+@api_view(['POST'])
+def fi_check_replacement(request):
+    
+    debug = ""
+    res = {'message_code': 999, 'message_text': 'Functional part is commented.', 'message_data': [], 'message_debug': debug}
+
+    Location_token = request.data.get('Location_token', 0)
+    User_Id = request.data.get('User_Id', 0)
+    Script_Code = request.data.get('Script_Code', 1)
+    Script_Option_Id = request.data.get('Script_Option_Id', 0)
+    Script_Option_Langauge = request.data.get('Script_Option_Langauge', 'EN')
+    Script_Action_Input = request.data.get('Script_Action_Input', '')
+
+    if Script_Code == 0:
+        Script_Code = 1
+
+    if not Script_Code:
+            res = {'message_code': 999, 'message_text': 'Script code is required'}
+    elif not Location_token:
+        res = {'message_code': 999, 'message_text': 'Location token is required'}
+    elif not Script_Option_Langauge:
+        res = {'message_code': 999, 'message_text': 'Script option language is required'}
+    else:
+            
+            if Script_Option_Id != 0:
+                
+                chat_scripts = tblChatScripts.objects.filter(
+                    Location_token=Location_token,
+                    Script_Language=Script_Option_Langauge,
+                    is_deleted = 0,
+                    Script_Code__in=tblScriptOptions.objects.filter(
+                        Script_Option_Langauge=Script_Option_Langauge,
+                        Script_Option_Id=Script_Option_Id,
+                        Location_token=Location_token,
+                        Script_Code=Script_Code
+                    )
+                )
+            else:
+                chat_scripts = tblChatScripts.objects.filter(
+                    Location_token=Location_token,
+                    Script_Language=Script_Option_Langauge,
+                    Script_Code=Script_Code
+                )
+            # serializer = tblChatScriptsSerializer(chat_scripts, many=True)
+            # result = serializer.data
+            # last_query = connection.queries[-1]['sql']
+            # print(last_query)
+            # print(result)
+            # print(chat_scripts)
+            if chat_scripts.exists():
+                for chat_script in chat_scripts:
+                    start = 0
+
+                    if '{' in chat_script.Script_Text:
+                        while start > -1:
+                            posS = chat_script.Script_Text.find('{', start)
+                            posE = chat_script.Script_Text.find('}', start)
+
+                            if posS > -1:
+                                Var = chat_script.Script_Text[posS:posE + 1]
+                                debug = f"{posS} | {posE} | {Var}"
+
+                                Var = Var.replace("{", "").replace("}", "")
+                                arr = Var.split("-")
+
+                                last_input = tblUserActions.objects.filter(
+                                    Location_token=arr[0],
+                                    User_Id=User_Id,
+                                    Script_Code=arr[1]
+                                ).values_list('Script_Action_Input', flat=True).first()
+
+                                chat_script.Script_Text = chat_script.Script_Text.replace(
+                                    "{" + arr[0] + "-" + arr[1] + "-" + arr[2] + "}",
+                                    last_input
+                                )
+
+                                debug = f"{debug} | {chat_script.Script_Text}"
+                                start = posE + 1
+
+                    chat_script.Script_Options = []  # Script_Options field as empty list
+
+                serializer = tblChatScriptsSerializer(chat_scripts, many=True)
+                res = {'message_code': 1000, 'message_text': 'Response Retrieval Successfully.', 'message_data': serializer.data, 'message_debug':  [{"Debug": debug}] if debug != "" else []}
+            else:
+                res = {'message_code': 999, 'message_text': 'Sorry unable to understand your message. Please try again.', 'message_debug':  [{"Debug": debug}] if debug != "" else []}
+
+    return JsonResponse(res)
+
+##################################################fi_get_chat_action
+
+@api_view(['POST'])
+def fi_get_chat_action(request):
+    debug = ""
+    res = {'message_code': 999, 'message_text': 'Functional part is commented.', 'message_data': [], 'message_debug': debug}
+
+    body = request.data
+
+    Location_token = body.get('Location_token', 0)
+    User_Id = body.get('User_Id', 0)
+    Script_Code = body.get('Script_Code', 1)
+    Script_Option_Id = body.get('Script_Option_Id', 0)
+    Script_Option_Langauge = body.get('Script_Option_Langauge', 'EN')
+    Script_Action_Input = body.get('Script_Action_Input', '')
+    Script_Option_Value = body.get('Script_Option_Value', '')
+
+    if Script_Code == 0:
+        Script_Code = 1
+
+    if not Script_Code:
+        res = {'message_code': 999, 'message_text': 'Script code is required'}
+    elif not Location_token:
+        res = {'message_code': 999, 'message_text': 'Location token is required'}
+    elif not User_Id:
+        res = {'message_code': 999, 'message_text': 'User Id is required'}
+    elif not Script_Option_Langauge:
+        res = {'message_code': 999, 'message_text': 'Script option language is required'}
+    else:
+        
+            user_action_data = {
+                'Location_token':Location_token,
+                'User_Id':User_Id,
+                'Script_Code':Script_Code,
+                'Script_Option_Id':Script_Option_Id,
+                'Script_Option_Langauge':Script_Option_Langauge,
+                'Script_Action_Input':Script_Action_Input,
+                'Script_Option_Value':Script_Option_Value,
+                'created_by':User_Id,
+                'created_on':int(time.time()),
+                'last_modified_by':User_Id,
+                'last_modified_on':int(time.time())
+
+            }
+            UserActionSerializer = tblUserActionsSerializer(data=user_action_data)
+            if UserActionSerializer.is_valid():
+                instance = UserActionSerializer.save()
+                serialized_data = tblUserActionsSerializer(instance).data
+            else:
+                print("Validation Errors:", tblUserActionsSerializer.errors)
+            # print(int(time.time()))
+            # last_query = connection.queries[-1]['sql']
+            # print(last_query)
+
+
+            if Script_Option_Id != 0:
+                chat_scripts = tblChatScripts.objects.filter(
+                Location_token=Location_token,
+                Script_Language=Script_Option_Langauge,
+                Script_Code__in=tblScriptOptions.objects.filter(
+                    Script_Option_Langauge=Script_Option_Langauge,
+                    Script_Option_Id=Script_Option_Id,
+                    Location_token=Location_token,
+                    Script_Code=Script_Code
+                ).values('Script_Option_Action_Script_Id')
+            )
+            else:
+                chat_scripts = tblChatScripts.objects.filter(
+                    Location_token=Location_token,
+                    Script_Language=Script_Option_Langauge,
+                    Script_Code=Script_Code
+                )
+
+                
+            if chat_scripts.exists():
+                for chat_script in chat_scripts:
+                    start = 0
+
+                    if '{' in chat_script.Script_Text:
+                        while start > -1:
+                            posS = chat_script.Script_Text.find('{', start)
+                            posE = chat_script.Script_Text.find('}', start)
+
+                            if posS > -1:
+                                Var = chat_script.Script_Text[posS:posE + 1]
+                                debug = f"{posS} | {posE} | {Var}"
+
+                                Var = Var.replace("{", "").replace("}", "")
+                                arr = Var.split("-")
+
+                                if '=' in Var:
+                                    Quantity = tblUserActions.objects.filter(
+                                        App_Id=App_Id,
+                                        User_Id=User_Id,
+                                        Script_Code=15
+                                    ).values_list('Script_Action_Input', flat=True).first()
+
+                                    url = f"https://www.vgold.co.in/dashboard/webservices/get_gold_plan_rate.php?qty={Quantity}"
+                                    response = requests.get(url)
+                                    details = response.json()
+
+                                    debug = details
+                                    if Var == "=BOOKING_CHARGES":
+                                        lastInput = details.get("booking_charge", "")
+                                    elif Var == "=BOOKING_AMOUNT":
+                                        lastInput = details.get("booking_amount", "")
+                                    elif Var == "=PAY_NOW":
+                                        lastInput = details.get("have_to_pay", "")
+                                    elif Var == "=EMI":
+                                        EMI = tblUserActions.objects.filter(
+                                            Location_token=Location_token,
+                                            User_Id=User_Id,
+                                            Script_Code=16
+                                        ).values_list('Script_Option_Value', flat=True).first()
+
+                                        arrInstallments = details.get("installments", {})
+                                        lastInput = "Contact Support"
+                                        for tempKey, tempValue in arrInstallments.items():
+                                            if tempKey == f"{int(EMI)} Months":
+                                                lastInput = f"{tempValue} for {tempKey}"
+                                    
+                                                chat_script.Script_Text = chat_script.Script_Text.replace(
+                                                    "{" + arr[0] + "-" + arr[1] + "-" + arr[2] + "}",
+                                                    lastInput
+                                                )
+
+                                                debug = f"{debug} | {chat_script.Script_Text}"
+                                                start = posE + 1
+
+                                            else:
+                                                arr = Var.split("-")
+                                                lastInput = tblUserActions.objects.filter(
+                                                    Location_token=arr[0],
+                                                    User_Id=User_Id,
+                                                    Script_Code=arr[1]
+                                                ).values_list('Script_Action_Input', flat=True).first()
+
+                                                chat_script.Script_Text = chat_script.Script_Text.replace(
+                                                    "{" + arr[0] + "-" + arr[1] + "-" + arr[2] + "}",
+                                                    lastInput
+                                                )
+
+                                                debug = f"{debug} | {chat_script.Script_Text}"
+                                                start = posE + 1
+
+                    chat_script.Script_Options = []  # Script_Options field as an empty list
+
+                    script_options = tblScriptOptions.objects.filter(
+                    Script_Option_Langauge=Script_Option_Langauge,
+                    Location_token=Location_token,
+                    Script_Code=chat_script.Script_Code
+                )
+
+                serializer = tblScriptOptionsSerializer(script_options, many=True)
+
+                if serializer.data:
+                    chat_script.Script_Options = serializer.data
+
+
+
+
+
+
+                # serializer = tblChatScriptsSerializer(chat_scripts, many=True)
+                res = {'message_code': 1000, 'message_text': 'Response Retrieval Successfully.', 'message_data': serializer.data, 'message_debug': [{"Debug": debug}] if debug != "" else []}
+            else:
+                res = {'message_code': 999, 'message_text': 'Sorry unable to understand your message. Please try again.', 'message_debug': [{"Debug": debug}] if debug != "" else []}
+
+    return JsonResponse(res)

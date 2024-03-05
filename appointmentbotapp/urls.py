@@ -12,5 +12,9 @@ urlpatterns = [
     path('insert_useractions/', fi_insert_useractions, name='fi_insert_useractions'),
     path("get_useraction_by_locationtoken_userid/",fi_get_useraction_by_locationtoken_userid, name='fi_get_useraction_by_locationtoken_userid'),
     
+
+    path("check_replacement/",fi_check_replacement, name='fi_check_replacement'),
+    path("get_chat_action/",fi_get_chat_action, name='fi_get_chat_action'),
+   
 ]
 
