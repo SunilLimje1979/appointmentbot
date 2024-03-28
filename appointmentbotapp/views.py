@@ -17,6 +17,7 @@ from django.http import JsonResponse
 import json
 from django.db import connection
 import time
+from googletrans import Translator
 
 from medicify_project.models import * 
 from medicify_project.serializers import *
@@ -531,3 +532,186 @@ def fi_get_chat_action(request):
                 res = {'message_code': 999, 'message_text': 'Sorry unable to understand your message. Please try again.', 'message_debug': [{"Debug": debug}] if debug != "" else []}
 
     return JsonResponse(res)
+
+
+def translate_to_hindi(text):
+    translator = Translator()
+    translated_text = translator.translate(text, src='en', dest='hi').text
+    return translated_text
+
+
+def translate_to_marathi(text):
+    translator = Translator()
+    translated_text = translator.translate(text, src='en', dest='mr').text
+    return translated_text
+
+# fi_insert_chatscripts_bulk_record_withparam
+@api_view(['POST'])
+def fi_insert_chatscripts_bulk_record_withparam(request):
+    
+    debug = ""
+    res = {'message_code': 999, 'message_text': 'Functional part is commented.', 'message_data': [], 'message_debug': debug}
+    body = request.data
+
+    # script_code = body.get('script_code', "")
+    script_type = body.get('script_type', "")
+    clinic_name = body.get('clinic_name', "") #Dr. Mohite\'s Clinic
+    hindi_clinic_name = translate_to_hindi(clinic_name)
+    marathi_clinic_name = translate_to_marathi(clinic_name)
+    dr_name = body.get('dr_name', "")
+    hindi_dr_name = translate_to_hindi(dr_name)
+    marathi_dr_name = translate_to_marathi(dr_name)
+    dr_contact_number = body.get('dr_contact_number', "")
+
+    try:
+            
+            chatscript_data = [
+                {"Script_Code": 1, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>Greetings,</p>\n\n<p>We appreciate your reaching out to <strong>"+str(clinic_name)+"</strong>.</p>\n\n<p>I&#39;m a <strong>Virtual Receptionist</strong>,</p>\n\n<p>To assist you more effectively, could you kindly inform me <strong>What you are looking for </strong>?</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 1, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "<p>नमस्ते,</p>\n\n<p><strong>"+str(hindi_clinic_name)+"</strong> से संपर्क करने के लिए धन्यवाद।</p>\n\n<p>मैं  एक<strong> व्हर्च्युअल रिसेप्शनिस्ट</strong> हूँ, </p>\n\n<p>आपकी अधिक प्रभावी ढंग से सहायता करने के लिए, क्या आप कृपया मुझे बता सकते हैं <strong>आप क्या खोज रहे हैं </strong>?</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 1, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>नमस्कार,</p>\n\n<p><strong>"+str(marathi_clinic_name)+"</strong> ला संपर्क करण्याबद्दल आपले आभार।</p><p>मी एक <strong>व्हर्च्युअल रिसेप्शनिस्ट</strong> आहे,</p>\n\n<p>तुम्हाला अधिक प्रभावीपणे मदत करण्यासाठी, तुम्ही कृपया मला कळवू शकाल का <strong>तुम्ही काय शोधत आहात </strong>?</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 2, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>"+str(dr_name)+" Profile HTML</p><br/> </strong>Would you like to book an appointment?</strong><br/>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 2, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "<p>"+str(hindi_dr_name)+" की प्रोफ़ाइल HTML</p><br/> </strong>क्या आप अपॉइंटमेंट बुक करना चाहेंगे?</strong><br/>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 2, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>"+str(marathi_dr_name)+" यांचे प्रोफाइल HTML</p><br/> </strong>तुम्हाला भेटीची वेळ बुक करायची आहे का?</strong><br/>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+            
+                {"Script_Code": 3, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>Thank you<br/>If you need any more details or have any concerns you can contact "+str(dr_name)+" on <strong>+91 "+str(dr_contact_number)+"</strong></p><br/>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 3, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "धन्यवाद<br/>यदि आपको अधिक जानकारी चाहिए या कोई चिंता है तो आप "+str(dr_name)+" से <strong>+91 "+str(dr_contact_number)+"</strong></p><br/> पर संपर्क कर सकते हैं।", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 3, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>धन्यवाद<br/>तुम्हाला आणखी काही तपशील हवे असल्यास किंवा काही समस्या असल्यास तुम्ही "+str(dr_name)+" यांच्याशी <strong>+91 "+str(dr_contact_number)+"</strong></p><br/> वर संपर्क साधू शकता.", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+            
+                {"Script_Code": 4, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>Choose your <strong>Appointment Date</strong></p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 4, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "<p>अपनी <strong>मुलाकात की तारीख</strong></p> चुनें", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 4, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>तुमची <strong>भेटण्याची तारीख</strong></p> निवडा", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+            
+                {"Script_Code": 5, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>Choose your <strong>Appointment Time</strong></p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 5, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "<p>अपना <strong>मिलने का समय</strong></p> चुनें", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 5, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>तुमची <strong>भेटण्याची वेळ</strong></p> निवडा", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+            
+                {"Script_Code": 6, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>Who is the patient?</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 6, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "<p>रुग्ण कौन है?</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 6, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>रुग्ण कोण आहे?</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+
+                {"Script_Code": 7, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>Thank you, Your appointment on {2-4-0} between {2-5-0} is  confirmed. Please note your token no. <strong></strong> </p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 7, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "<p>धन्यवाद, आपकी मुलाकात {2-5-0} के बीच {2-4-0} के लिए तय हो गई है। कृपया अपना टोकन नंबर नोट कर लें <strong></strong>। </p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 7, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>धन्यवाद, तुमची {2-4-0} रोजी {2-5-0} दरम्यानची भेट निश्चित झाली आहे. तुमचा टोकन क्र. <strong></strong> आहे.</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+
+                {"Script_Code": 8, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>Please mention patient name</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 8, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "<p>कृपया मरीज का नाम बताएं</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 8, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>कृपया रुग्णाचे नाव सांगा</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+
+                {"Script_Code": 9, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>Please mention patient mobile no.</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 9, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "<p>कृपया मरीज का मोबाइल नंबर बताएं।</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 9, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>कृपया रुग्णाचा मोबाईल क्रमांक नमूद करा.</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+
+                
+                {"Script_Code": 10, "Script_Type": script_type, "Script_Language": "EN", "Script_Text": "<p>Thank you,  appointment for {2-8-0} on {2-4-0} between {2-5-0} is  confirmed. Please note the token no. <strong>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 10, "Script_Type": script_type, "Script_Language": "HI", "Script_Text": "<p>धन्यवाद, {2-8-0} के लिए {2-4-0} को {2-5-0} के बीच मिलना तय है। कृपया टोकन नंबर नोट कर लें। <strong></strong> </p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 10, "Script_Type": script_type, "Script_Language": "MA", "Script_Text": "<p>धन्यवाद, {2-8-0} साठी {2-4-0} रोजी {2-5-0} दरम्यानची भेट निश्चित आहे. कृपया टोकन क्र. <strong></strong> </p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+ 
+
+                
+            ]
+
+            # print(chatscript_data)
+
+            for data_item in chatscript_data:
+                ChatScriptsSerializer = tblChatScriptsSerializer(data=data_item)
+                if ChatScriptsSerializer.is_valid():
+                    instance = ChatScriptsSerializer.save()
+                    last_Script_id_id = instance.Script_id
+                    serialized_data = tblChatScriptsSerializer(instance).data
+
+                    res = {
+                        'message_code': 1000,
+                        'message_text': 'Chat script inserted successfully',
+                        'message_data': serialized_data,
+                        'message_debug': debug if debug else []
+                    }
+                else:
+                    res = {
+                        'message_code': 2000,
+                        'message_text': 'Validation Error',
+                        'message_errors': ChatScriptsSerializer.errors
+                    }
+
+
+    except Exception as e:
+            res = {'message_code': 999, 'message_text': f'Error: {str(e)}'}
+
+    return Response(res, status=status.HTTP_200_OK)
+
+# fi_insert_scriptoptions_bulk_record_withparam
+@api_view(['POST'])
+def fi_insert_scriptoptions_bulk_record_withparam(request):
+    
+    debug = ""
+    res = {'message_code': 999, 'message_text': 'Functional part is commented.', 'message_data': [], 'message_debug': debug}
+    body = request.data
+
+    # script_code = body.get('script_code', "")
+    dr_name = body.get('dr_name', "")
+    hindi_dr_name = translate_to_hindi(dr_name)
+    marathi_dr_name = translate_to_marathi(dr_name)
+    script_option_type = body.get('script_option_type', "")
+
+    try:
+            
+            scriptoption_data = [
+                {"Script_Code": 1, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "EN", "Script_Option_Text": "Dr\'s "+str(dr_name)+" Profile", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 1, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "EN", "Script_Option_Text": "Book Appointment", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 1, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "HI", "Script_Option_Text": "डॉ. "+str(hindi_dr_name)+" की जानकारी", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 1, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "HI", "Script_Option_Text": "बुक अपॉइंटमेंट", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 1, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "MA", "Script_Option_Text": "डॉ "+str(marathi_dr_name)+" राची माहिती", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+                {"Script_Code": 1, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "MA", "Script_Option_Text": "बुक अपॉइंटमेंट", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               
+               
+               {"Script_Code": 2, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "EN", "Script_Option_Text": "Yes", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 2, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "EN", "Script_Option_Text": "No", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 2, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "HI", "Script_Option_Text": "हाँ", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 2, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "HI", "Script_Option_Text": "नहीं", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 2, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "MA", "Script_Option_Text": "होय", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 2, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "MA", "Script_Option_Text": "नाही", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               
+               {"Script_Code": 4, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "EN", "Script_Option_Text": "{TENDATES}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 4, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "HI", "Script_Option_Text": "{TENDATES}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 4, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "MA", "Script_Option_Text": "{TENDATES}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               
+               {"Script_Code": 5, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "EN", "Script_Option_Text": "{TIME_SLOTS}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 5, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "HI", "Script_Option_Text": "{TIME_SLOTS}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 5, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "MA", "Script_Option_Text": "{TIME_SLOTS}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+              
+               {"Script_Code": 6, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "EN", "Script_Option_Text": "MySelf", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 6, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "EN", "Script_Option_Text": "Family Member/Friend ", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 6, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "HI", "Script_Option_Text": "\nखुद के लिए", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 6, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "HI", "Script_Option_Text": "\nपरिवार के सदस्य/दोस्त के लिए", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 6, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "MA", "Script_Option_Text": "स्वत:साठी", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               {"Script_Code": 6, "Script_Option_Type": script_option_type, "Script_Option_Langauge": "MA", "Script_Option_Text": "कुटुंबातील सदस्यांसाठी/मित्रासाठी", "Script_Option_Value": None, "Script_Option_Action_Script_Id": None, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": None},
+               
+                
+            ]
+
+
+            for data_item in scriptoption_data:
+                ScriptOptionSerializer = tblScriptOptionsSerializer(data=data_item)
+                if ScriptOptionSerializer.is_valid():
+                    instance = ScriptOptionSerializer.save()
+                    last_Script_Option_Id = instance.Script_Option_Id
+                    serialized_data = tblScriptOptionsSerializer(instance).data
+
+                    res = {
+                        'message_code': 1000,
+                        'message_text': 'script options inserted successfully',
+                        'message_data': serialized_data,
+                        'message_debug': debug if debug else []
+                    }
+                else:
+                    res = {
+                        'message_code': 2000,
+                        'message_text': 'Validation Error',
+                        'message_errors': ScriptOptionSerializer.errors
+                    }
+
+
+    except Exception as e:
+            res = {'message_code': 999, 'message_text': f'Error: {str(e)}'}
+
+    return Response(res, status=status.HTTP_200_OK)
+

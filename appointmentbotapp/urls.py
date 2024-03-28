@@ -15,6 +15,13 @@ urlpatterns = [
 
     path("check_replacement/",fi_check_replacement, name='fi_check_replacement'),
     path("get_chat_action/",fi_get_chat_action, name='fi_get_chat_action'),
+
+    
+    path("insert_chatscripts_bulk_record_withparam/",fi_insert_chatscripts_bulk_record_withparam, name='fi_insert_chatscripts_bulk_record_withparam'),
+
+
+    path("insert_scriptoptions_bulk_record_withparam/",fi_insert_scriptoptions_bulk_record_withparam, name='fi_insert_scriptoptions_bulk_record_withparam'),
+
    
 ]
 
