@@ -22,6 +22,8 @@ urlpatterns = [
 
     path("insert_scriptoptions_bulk_record_withparam/",fi_insert_scriptoptions_bulk_record_withparam, name='fi_insert_scriptoptions_bulk_record_withparam'),
 
+     path("get_chat/",fi_get_chat, name='fi_get_chat'),
+
    
 ]
 

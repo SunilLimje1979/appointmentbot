@@ -22,7 +22,8 @@ from googletrans import Translator
 from medicify_project.models import * 
 from medicify_project.serializers import *
 
-
+from django.shortcuts import render,redirect
+import requests
 
 @api_view(['POST'])
 def fi_insert_chatscripts(request):
@@ -455,7 +456,7 @@ def fi_get_chat_action(request):
 
                                 if '=' in Var:
                                     Quantity = tblUserActions.objects.filter(
-                                        App_Id=App_Id,
+                                        Location_token=Location_token,
                                         User_Id=User_Id,
                                         Script_Code=15
                                     ).values_list('Script_Action_Input', flat=True).first()
@@ -715,3 +716,25 @@ def fi_insert_scriptoptions_bulk_record_withparam(request):
 
     return Response(res, status=status.HTTP_200_OK)
 
+
+@api_view(['POST'])
+def fi_get_chat(request):
+    if request.method == 'POST':
+        # Get the JSON data from the request body
+        json_data = request.body.decode('utf-8').strip()
+
+        url = 'http://13.233.211.102/appointmentbot/api/get_chat_action/'
+
+        # Make a POST request using the requests library
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(url, data=json_data, headers=headers)
+
+        # Check for errors in the response
+        if response.status_code != 200:
+            return JsonResponse({'error': 'Failed to fetch data from the server'}, status=500)
+
+        # Return the response data
+        return JsonResponse(response.json(), status=200)
+
+    else:
+        return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
