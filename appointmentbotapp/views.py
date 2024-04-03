@@ -390,8 +390,8 @@ def fi_get_chat_action(request):
         res = {'message_code': 999, 'message_text': 'Script code is required'}
     elif not Location_token:
         res = {'message_code': 999, 'message_text': 'Location token is required'}
-    elif not User_Id:
-        res = {'message_code': 999, 'message_text': 'User Id is required'}
+    # elif not User_Id:
+    #     res = {'message_code': 999, 'message_text': 'User Id is required'}
     elif not Script_Option_Langauge:
         res = {'message_code': 999, 'message_text': 'Script option language is required'}
     else:
