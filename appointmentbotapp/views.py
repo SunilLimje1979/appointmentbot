@@ -381,6 +381,8 @@ def fi_get_chat_action(request):
     Script_Action_Input = body.get('Script_Action_Input', '')
     Script_Option_Value = body.get('Script_Option_Value', '')
 
+    resArray = []
+
     if Script_Code == 0:
         Script_Code = 1
 
@@ -439,8 +441,12 @@ def fi_get_chat_action(request):
 
                 
             if chat_scripts.exists():
+                chat_scripts_data = []
                 for chat_script in chat_scripts:
                     start = 0
+
+                    serializer = tblChatScriptsSerializer(chat_script)
+                    chat_script_data = serializer.data
 
                     if '{' in chat_script.Script_Text:
                         while start > -1:
@@ -460,8 +466,8 @@ def fi_get_chat_action(request):
                                         User_Id=User_Id,
                                         Script_Code=15
                                     ).values_list('Script_Action_Input', flat=True).first()
-
-                                    url = f"https://www.vgold.co.in/dashboard/webservices/get_gold_plan_rate.php?qty={Quantity}"
+                                    # https://www.vgold.co.in/dashboard/webservices/get_gold_plan_rate.php?qty={Quantity}
+                                    url = f""
                                     response = requests.get(url)
                                     details = response.json()
 
@@ -521,14 +527,16 @@ def fi_get_chat_action(request):
 
                 if serializer.data:
                     chat_script.Script_Options = serializer.data
+                    chat_script_data['Script_Options'] = serializer.data
 
-
+                chat_scripts_data.append(chat_script_data)
+            
 
 
 
 
                 # serializer = tblChatScriptsSerializer(chat_scripts, many=True)
-                res = {'message_code': 1000, 'message_text': 'Response Retrieval Successfully.', 'message_data': serializer.data, 'message_debug': [{"Debug": debug}] if debug != "" else []}
+                res = {'message_code': 1000, 'message_text': 'Response Retrieval Successfully.', 'message_data': chat_script_data, 'message_debug': [{"Debug": debug}] if debug != "" else []}
             else:
                 res = {'message_code': 999, 'message_text': 'Sorry unable to understand your message. Please try again.', 'message_debug': [{"Debug": debug}] if debug != "" else []}
 
