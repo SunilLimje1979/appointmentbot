@@ -466,73 +466,7 @@ def fi_get_chat_action(request):
                     chat_script_data = serializer.data
                     # last_query = connection.queries[-1]['sql']
                     # print(last_query)
-                    if '{' in chat_script.Script_Text:
-                        while start > -1:
-                            posS = chat_script.Script_Text.find('{', start)
-                            posE = chat_script.Script_Text.find('}', start)
-
-                            if posS > -1:
-                                Var = chat_script.Script_Text[posS:posE + 1]
-                                debug = f"{posS} | {posE} | {Var}"
-
-                                Var = Var.replace("{", "").replace("}", "")
-                                arr = Var.split("-")
-
-                                if '=' in Var:
-                                    Quantity = tblUserActions.objects.filter(
-                                        Location_token=Location_token,
-                                        User_Id=User_Id,
-                                        Script_Code=15
-                                    ).values_list('Script_Action_Input', flat=True).first()
-                                    # https://www.vgold.co.in/dashboard/webservices/get_gold_plan_rate.php?qty={Quantity}
-                                    url = f""
-                                    response = requests.get(url)
-                                    details = response.json()
-
-                                    debug = details
-                                    if Var == "=BOOKING_CHARGES":
-                                        lastInput = details.get("booking_charge", "")
-                                    elif Var == "=BOOKING_AMOUNT":
-                                        lastInput = details.get("booking_amount", "")
-                                    elif Var == "=PAY_NOW":
-                                        lastInput = details.get("have_to_pay", "")
-                                    elif Var == "=EMI":
-                                        EMI = tblUserActions.objects.filter(
-                                            Location_token=Location_token,
-                                            User_Id=User_Id,
-                                            Script_Code=16
-                                        ).values_list('Script_Option_Value', flat=True).first()
-
-                                        arrInstallments = details.get("installments", {})
-                                        lastInput = "Contact Support"
-                                        for tempKey, tempValue in arrInstallments.items():
-                                            if tempKey == f"{int(EMI)} Months":
-                                                lastInput = f"{tempValue} for {tempKey}"
-                                    
-                                                chat_script.Script_Text = chat_script.Script_Text.replace(
-                                                    "{" + arr[0] + "-" + arr[1] + "-" + arr[2] + "}",
-                                                    lastInput
-                                                )
-
-                                                debug = f"{debug} | {chat_script.Script_Text}"
-                                                start = posE + 1
-
-                                            else:
-                                                arr = Var.split("-")
-                                                lastInput = tblUserActions.objects.filter(
-                                                    Location_token=arr[0],
-                                                    User_Id=User_Id,
-                                                    Script_Code=arr[1]
-                                                ).values_list('Script_Action_Input', flat=True).first()
-
-                                                chat_script.Script_Text = chat_script.Script_Text.replace(
-                                                    "{" + arr[0] + "-" + arr[1] + "-" + arr[2] + "}",
-                                                    lastInput
-                                                )
-
-                                                debug = f"{debug} | {chat_script.Script_Text}"
-                                                start = posE + 1
-
+                    
                     chat_script.Script_Options = []  # Script_Options field as an empty list
 
                     script_options = tblScriptOptions.objects.filter(
@@ -541,19 +475,59 @@ def fi_get_chat_action(request):
                     Script_Code=chat_script.Script_Code
                 )
 
-                serializer = tblScriptOptionsSerializer(script_options, many=True)
+                serializer_scriptoptions = tblScriptOptionsSerializer(script_options, many=True)
 
                 if serializer.data:
-                    chat_script.Script_Options = serializer.data
-                    chat_script_data['Script_Options'] = serializer.data
+                    chat_script.Script_Options = serializer_scriptoptions.data
+                    chat_script_data['Script_Options'] = serializer_scriptoptions.data
 
                 chat_scripts_data.append(chat_script_data)
             
+                day_mapping = {
+                    1: "Monday",
+                    2: "Tuesday",
+                    3: "Wednesday",
+                    4: "Thursday",
+                    5: "Friday",
+                    6: "Saturday",
+                    7: "Sunday"
+                }
+                time_slots = []
+                for chat_script in chat_scripts_data:
+                    if 'Script_Options' in chat_script:
+                        script_options = chat_script['Script_Options']
+                        for option in script_options:
+                            if 'Script_Option_Text' in option and '{TIME_SLOTS}' in option['Script_Option_Text']:
+                                # Assuming Location_token is available in chat_script
+                                doctorlocations = Tbldoctorlocations.objects.filter(location_token=chat_script['Location_token'])
+                                if doctorlocations.exists():
+                                    # Assuming DoctorLocationSerializer is properly defined
+                                    serializer_doctorlocation = DoctorLocationSerializer(doctorlocations, many=True)
+                                    for data_item in serializer_doctorlocation.data:
+                                        doctor_location_id = data_item.get('doctor_location_id')
 
+                                        doctorlocationavailability = Tbldoctorlocationavailability.objects.filter(doctor_location_id=doctor_location_id)
+                                        if doctorlocationavailability.exists():
+                                            # Assuming DoctorLocationSerializer is properly defined
+                                            serializer_doctorlocationavailability = DoctorLocationAvailabilitySerializer(doctorlocationavailability, many=True)
+                                            for data_item in serializer_doctorlocationavailability.data:
+                                                availability_day = data_item.get('availability_day')
+                                                day_of_week = day_mapping.get(availability_day)
+                                                
+                                                availability_starttime = data_item.get('availability_starttime')
+                                                availability_endtime = data_item.get('availability_endtime')
 
+                                                availability_info = f"{day_of_week}: {availability_starttime} - {availability_endtime}"
+    
+                                                # Append the availability info to the time_slots list
+                                                time_slots.append(availability_info)
 
+                                                # Join the time slots list with <br/> to create the final string
+                                                time_slot_text = "<br/>".join(time_slots)
 
-                # serializer = tblChatScriptsSerializer(chat_scripts, many=True)
+                                                # Replace {TIME_SLOTS} in the option text with the concatenated time slots
+                                                option['Script_Option_Text'] = option['Script_Option_Text'].replace("{TIME_SLOTS}", time_slot_text)
+
                 res = {'message_code': 1000, 'message_text': 'Response Retrieval Successfully.', 'message_data': chat_script_data, 'message_debug': [{"Debug": debug}] if debug != "" else []}
             else:
                 res = {'message_code': 999, 'message_text': 'Sorry unable to understand your message. Please try again.', 'message_debug': [{"Debug": debug}] if debug != "" else []}
@@ -761,7 +735,7 @@ def fi_get_chat(request):
     if request.method == 'POST':
         # Get the JSON data from the request body
         json_data = request.body.decode('utf-8').strip()
-
+        
         url = 'http://13.233.211.102/appointmentbot/api/get_chat_action/'
 
         # Make a POST request using the requests library
