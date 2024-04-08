@@ -703,7 +703,20 @@ def fi_get_chat_action(request):
                                                     # option['Script_Option_Text'] = option['Script_Option_Text'].replace("{TIME_SLOTS}", str(time_slots))
                                                 else:
                                                     option['Script_Option_Text'] = option['Script_Option_Text'].replace("{TIME_SLOTS}", "Please select another date")
-                                            
+
+
+                for chat_script in chat_scripts_data:
+                    if 'Script_Text' in chat_script:
+                        # Define the date and time values to replace the placeholders
+                        date_value = date_object  # Example date value
+                        time_value = "10:00 AM - 11:00 AM"  # Example time value
+
+                        # Replace the placeholders with the actual values
+                        formatted_script_text = chat_script["Script_Text"].format(date_value, time_value)
+
+                        # Update the chat_script dictionary with the formatted script text
+                        chat_script["Script_Text"] = formatted_script_text
+
                 res = {'message_code': 1000, 'message_text': 'Response Retrieval Successfully.', 'message_data': chat_script_data, 'message_debug': [{"Debug": debug}] if debug != "" else []}
             else:
                 res = {'message_code': 999, 'message_text': 'Sorry unable to understand your message. Please try again.', 'message_debug': [{"Debug": debug}] if debug != "" else []}
