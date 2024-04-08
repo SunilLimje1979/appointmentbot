@@ -480,15 +480,15 @@ def fi_get_chat_action(request):
                         script_options = chat_script['Script_Options']
                         for option in script_options:
                             if 'Script_Option_Text' in option and '{TIME_SLOTS}' in option['Script_Option_Text']:
-                                # Assuming Location_token is available in chat_script
-                                doctorlocations = Tbldoctorlocations.objects.filter(location_token=chat_script['Location_token'])
+                                # Assuming Location_token is available in chat_script chat_script['Location_token']
+                                doctorlocations = Tbldoctorlocations.objects.filter(location_token="test_token2")
                                 if doctorlocations.exists():
                                     # Assuming DoctorLocationSerializer is properly defined
                                     serializer_doctorlocation = DoctorLocationSerializer(doctorlocations, many=True)
                                     for data_item in serializer_doctorlocation.data:
                                         doctor_location_id = data_item.get('doctor_location_id')
 
-                                        doctorlocationavailability = Tbldoctorlocationavailability.objects.filter(doctor_location_id="test_token2")
+                                        doctorlocationavailability = Tbldoctorlocationavailability.objects.filter(doctor_location_id=doctor_location_id)
                                         if doctorlocationavailability.exists():
                                             # Assuming DoctorLocationSerializer is properly defined
                                             serializer_doctorlocationavailability = DoctorLocationAvailabilitySerializer(doctorlocationavailability, many=True)
