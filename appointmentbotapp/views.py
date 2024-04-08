@@ -416,22 +416,9 @@ def fi_get_chat_action(request):
                 serialized_data = tblUserActionsSerializer(instance).data
             else:
                 print("Validation Errors:", tblUserActionsSerializer.errors)
-            # print(int(time.time()))
-            # last_query = connection.queries[-1]['sql']
-            # print(last_query)
-
+            
 
             if Script_Option_Id != 0:
-            #     chat_scripts = tblChatScripts.objects.filter(
-            #     Location_token=Location_token,
-            #     Script_Language=Script_Option_Langauge,
-            #     Script_Code__in=tblScriptOptions.objects.filter(
-            #         Script_Option_Langauge=Script_Option_Langauge,
-            #         Script_Option_Id=Script_Option_Id,
-            #         Location_token=Location_token,
-            #         Script_Code=Script_Code
-            #     ).values('Script_Option_Action_Script_Id')
-            # )
                 script_option_action_script_ids = tblScriptOptions.objects.filter(
                 Script_Option_Langauge=Script_Option_Langauge,
                 Script_Option_Id=Script_Option_Id,
@@ -444,11 +431,6 @@ def fi_get_chat_action(request):
                     Script_Language=Script_Option_Langauge,
                     Script_Code__in=script_option_action_script_ids
                 )
-                # serializer = tblChatScriptsSerializer(chat_scripts)
-                # chat_script_data = serializer.data
-                # last_query = connection.queries[-1]['sql']
-                # print(last_query)
-                # print(chat_scripts)
             else:
                 chat_scripts = tblChatScripts.objects.filter(
                     Location_token=Location_token,
@@ -506,7 +488,7 @@ def fi_get_chat_action(request):
                                     for data_item in serializer_doctorlocation.data:
                                         doctor_location_id = data_item.get('doctor_location_id')
 
-                                        doctorlocationavailability = Tbldoctorlocationavailability.objects.filter(doctor_location_id=doctor_location_id)
+                                        doctorlocationavailability = Tbldoctorlocationavailability.objects.filter(doctor_location_id="test_token2")
                                         if doctorlocationavailability.exists():
                                             # Assuming DoctorLocationSerializer is properly defined
                                             serializer_doctorlocationavailability = DoctorLocationAvailabilitySerializer(doctorlocationavailability, many=True)
