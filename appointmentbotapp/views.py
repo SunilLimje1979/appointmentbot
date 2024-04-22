@@ -1,5 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from datetime import datetime ,timedelta
 from django.http import JsonResponse
 from rest_framework import status
 from datetime import datetime
@@ -382,6 +383,8 @@ def fi_get_chat_action(request):
     Script_Option_Langauge = body.get('Script_Option_Langauge', 'EN')
     Script_Action_Input = body.get('Script_Action_Input', '')
     Script_Option_Value = body.get('Script_Option_Value', '')
+    #print("Script Location_token:",Location_token)
+    #print("script action input:",Script_Action_Input)
 
     resArray = []
 
@@ -412,15 +415,21 @@ def fi_get_chat_action(request):
                 'last_modified_on':int(time.time())
 
             }
+           
             UserActionSerializer = tblUserActionsSerializer(data=user_action_data)
             if UserActionSerializer.is_valid():
                 instance = UserActionSerializer.save()
-                serialized_data = tblUserActionsSerializer(instance).data
+                # serialized_data = tblUserActionsSerializer(instance).data
+                serialized_data = UserActionSerializer.data 
+                # print(serialized_data)
             else:
-                print("Validation Errors:", tblUserActionsSerializer.errors)
+                # print("Validation Errors:", tblUserActionsSerializer.errors)
+                print("Validation Errors:",  UserActionSerializer.errors)
             
 
             if Script_Option_Id != 0:
+                #print("line 427 if")
+                #print(Script_Option_Id,Script_Option_Langauge,Location_token,Script_Code)
                 script_option_action_script_ids = tblScriptOptions.objects.filter(
                 Script_Option_Langauge=Script_Option_Langauge,
                 Script_Option_Id=Script_Option_Id,
@@ -433,15 +442,21 @@ def fi_get_chat_action(request):
                     Script_Language=Script_Option_Langauge,
                     Script_Code__in=script_option_action_script_ids
                 )
+                
+                #for item in script_option_action_script_ids:
+                #    print(item)  # This will print each item in the queryset
+
             else:
                 chat_scripts = tblChatScripts.objects.filter(
                     Location_token=Location_token,
                     Script_Language=Script_Option_Langauge,
                     Script_Code=Script_Code
                 )
+                #print("line 447 else")
 
-            # print(script_option_action_script_ids)
+            #print("446",script_option_action_script_ids)
             if chat_scripts.exists():
+                #print("line 451")
                 chat_scripts_data = []
                 for chat_script in chat_scripts:
                     start = 0
@@ -457,265 +472,202 @@ def fi_get_chat_action(request):
                     Script_Option_Langauge=Script_Option_Langauge,
                     Location_token=Location_token,
                     Script_Code=chat_script.Script_Code
-                )
+                    )
+                #print("line 468")
+                
+                for loop in script_options:
+                    #print("Script Option type:", loop.Script_Option_Type)
+                    #print("Script Option Text:", loop.Script_Option_Text)
+                    #print("Script Location_token:",Location_token)
+                    #print("script action input:",Script_Action_Input)
+                    #print("Script_Option_Id ",loop.Script_Option_Id )
+   
+                    # in look check Script_Option_Type == 5 and Srcipt_Option_Text == {TENDATES}
+                    if loop.Script_Option_Type == 5 and loop.Script_Option_Text == '{TENDATES}':
+                        try:
+                            doctor_location = Tbldoctorlocations.objects.get(location_token=Location_token)
+                        except Tbldoctorlocations.DoesNotExist:
+                            return Response({'error': 'Invalid location token'}, status=status.HTTP_404_NOT_FOUND)
 
+                        doctor_id = doctor_location.doctor_id
+
+                        # Calculate date range (current date to next 10 days)
+                        current_date = datetime.now().date()
+                        end_date = current_date + timedelta(days=10)
+
+                        # Fetch doctor leave records within the specified date range
+                        doctor_leaves = Tbldoctorleave.objects.filter(
+                            doctor_id=doctor_id,
+                            leave_date__gte=(datetime.now() - timedelta(days=1)).timestamp(),  # Include current date (considering time zone differences)
+                            leave_date__lt=(datetime.now() + timedelta(days=10)).timestamp()  # Next 10 days from current date
+                        )
+
+                        # Prepare leave details with structured format
+                        leave_details = []
+                        for leave in doctor_leaves:
+                            epoch_time = leave.leave_date
+                            leave_date = datetime.fromtimestamp(epoch_time).date()
+                            if leave.start_time != 0 and leave.end_time != 0:  # Only include details if start_time and end_time are non-zero
+                                # Determine time suffix based on order (1: AM, 2 or 3: PM)
+                                if leave.order == 1:
+                                    time_suffix = " AM"
+                                else:
+                                    time_suffix = " PM"
+
+                                start_time_str = f"{leave.start_time}{time_suffix}"
+                                end_time_str = f"{leave.end_time}{time_suffix}"
+
+                                # Construct leave detail entry
+                                leave_details.append({
+                                    'Script_Option_Id': loop.Script_Option_Id,
+                                    'Script_Option_Type':  1,
+                                    'Script_Option_Language': loop.Script_Option_Langauge,
+                                    'Script_Option_Text': leave_date.strftime('%d-%m-%Y'),
+                                    'Script_Option_Value':  leave_date.strftime('%d-%m-%Y'),
+                                    'Script_Option_Action_Script_Id': loop.Script_Option_Action_Script_Id,
+                                    
+                                    'Script_Code': loop.Script_Code
+                                })
+
+                        # Generate list of all dates within the date range (including current date)
+                        all_dates = [current_date + timedelta(days=i) for i in range(10)]  # 11 days including current date
+
+                        # Prepare non-leave date details with structured format
+                        nonleaved_dates_details = []
+                        for date in all_dates:
+                            if date not in [datetime.fromtimestamp(leave.leave_date).date() for leave in doctor_leaves]:
+                                # Determine time suffix based on day of the week (Monday to Sunday)
+                                day_of_week = date.weekday() + 1  # Monday is 0, so add 1 to match your day numbering
+                                availability = Tbldoctorlocationavailability.objects.filter(doctor_id=doctor_id, availability_day=day_of_week).first()
+                                if availability and availability.availability_starttime != 0 and availability.availability_endtime != 0:
+                                    if availability.availability_order == 1:
+                                        time_suffix = " AM"
+                                    else:
+                                        time_suffix = " PM"
+
+                                    start_time_str = f"{availability.availability_starttime}{time_suffix}"
+                                    end_time_str = f"{availability.availability_endtime}{time_suffix}"
+
+                                    # Construct non-leave detail entry
+                                    nonleaved_dates_details.append({
+                                        'Script_Option_Id': loop.Script_Option_Id,
+                                        'Script_Option_Type':  1,
+                                        'Script_Option_Language': loop.Script_Option_Langauge,
+                                        'Script_Option_Text': date.strftime('%d-%m-%Y'),
+                                        'Script_Option_Value':  date.strftime('%d-%m-%Y'),
+                                        'Script_Option_Action_Script_Id': loop.Script_Option_Action_Script_Id,
+                                        
+                                        'Script_Code': loop.Script_Code
+                                    })
+
+                        # Combine leave and non-leave date details into a single list
+                        script_options = leave_details + nonleaved_dates_details
+                   
+                    elif(loop.Script_Option_Type == 6 and loop.Script_Option_Text == '{TIME_SLOTS}'):
+                            # print(loop.Script_Option_Type)
+                            # print("Script Location_token:",Location_token)
+                            # print("script action input:",Script_Action_Input)
+                            # print("Language",loop.Script_Option_Langauge,str(loop.Script_Option_Langauge))
+                            try:
+                                doctor_location = Tbldoctorlocations.objects.get(location_token=Location_token)
+                            except Tbldoctorlocations.DoesNotExist:
+                                return Response({'error': 'Invalid location token'}, status=status.HTTP_404_NOT_FOUND)
+
+                            doctor_id = doctor_location.doctor_id
+
+                            try:
+                                # Parse the provided date string into a datetime object
+                                date = datetime.strptime(Script_Action_Input, "%d-%m-%Y").date()
+                            except ValueError:
+                                return Response({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=status.HTTP_400_BAD_REQUEST)
+
+                            # Convert the date to a Unix timestamp (epoch time)
+                            leave_timestamp = datetime.timestamp(datetime.combine(date, datetime.min.time()))
+
+                            # Check if there are doctor leaves for the specified date
+                            doctor_leaves = Tbldoctorleave.objects.filter(
+                                doctor_id=doctor_id,
+                                leave_date=leave_timestamp
+                            )
+
+                            if doctor_leaves.exists():
+                                # Doctor leave details found for the date
+                                leave_details = []
+                                for leave in doctor_leaves:
+                                    if leave.start_time != 0 and leave.end_time != 0:
+                                        # Determine time suffix based on order (1: AM, 2 or 3: PM)
+                                        if leave.order == 1:
+                                            time_suffix = " AM"
+                                        else:
+                                            time_suffix = " PM"
+
+                                        start_time_str = f"{leave.start_time}{time_suffix}"
+                                        end_time_str = f"{leave.end_time}{time_suffix}"
+
+                                        leave_details.append({
+                                            'Script_Option_Id':  loop.Script_Option_Id,
+                                            'Script_Option_Type': 1,
+                                            'Script_Option_Language':loop.Script_Option_Langauge,
+                                            'Script_Option_Text': f"{start_time_str} to {end_time_str}",
+                                            'Script_Option_Value': f"{start_time_str} to {end_time_str}",
+                                            'Script_Option_Action_Script_Id': loop.Script_Option_Action_Script_Id,
+                                            'Script_Code':  loop.Script_Code
+                                        })
+
+                                # Prepare response data with structured format
+                                script_options = leave_details
+
+                            else:
+                                # No doctor leaves found, check doctor location availability for the day of the week
+                                day_of_week = date.weekday() + 1  # Monday is 0, so add 1 to match your day numbering
+
+                                availabilities = Tbldoctorlocationavailability.objects.filter(
+                                    doctor_id=doctor_id,
+                                    availability_day=day_of_week
+                                )
+
+                                if availabilities.exists():
+                                    availability_details = []
+                                    for availability in availabilities:
+                                        if availability.availability_starttime != 0 and availability.availability_endtime != 0:
+                                            # Determine time suffix based on order (1: AM, 2 or 3: PM)
+                                            if availability.availability_order == 1:
+                                                time_suffix = " AM"
+                                            else:
+                                                time_suffix = " PM"
+
+                                            start_time_str = f"{availability.availability_starttime}{time_suffix}"
+                                            end_time_str = f"{availability.availability_endtime}{time_suffix}"
+
+                                            availability_details.append({
+                                                'Script_Option_Id':  loop.Script_Option_Id,
+                                                'Script_Option_Type': 1,
+                                                'Script_Option_Language': loop.Script_Option_Langauge,
+                                                'Script_Option_Text': f"{start_time_str} to {end_time_str}",
+                                                'Script_Option_Value': f"{start_time_str} to {end_time_str}",
+                                                'Script_Option_Action_Script_Id': loop.Script_Option_Action_Script_Id,
+                                                'Script_Code':  loop.Script_Code
+                                            })
+
+                                    # Prepare response data with structured format
+                                    script_options = availability_details
+
+                    #     //Add the logic from first api here which will prepare the Script_Options Object array
+                    #     Data required for that code like Location_token can be found in this api parameter posted
+                        
+                    # else condtion to check is Sciprt_Option_type == and script_Option_Text {TIME_SLOTS}
+                    #     //Add the logic from second api here which will prepare the scriot option obejct resArray
+                    #     Data required for that code like location_token can be found in this api parameter and
+                    #     Date required for that can be found under Script_Option_Value parameter to this API
+                        
+               
                 serializer_scriptoptions = tblScriptOptionsSerializer(script_options, many=True)
 
-                if serializer.data:
-                    chat_script.Script_Options = serializer_scriptoptions.data
+                if serializer_scriptoptions.data:
+                #    chat_script.Script_Options = serializer_scriptoptions.data
                     chat_script_data['Script_Options'] = serializer_scriptoptions.data
 
-                chat_scripts_data.append(chat_script_data)
-
-                # # from date get day logic
-                # # Assuming the date format is mm/dd/yyyy
-                # date_format = "%d/%m/%Y"
-                # if (body.get('Script_Action_Input') and datetime.strptime(body.get('Script_Action_Input'), date_format)):
-
-                #     # Get the Location_token
-                #     Script_Action_Input = body.get('Script_Action_Input')
-                #     date_string = Script_Action_Input
-                # else:
-                #     date_string = ""
-
-                # print(date_string)
-                # # Parse the date string into a datetime object
-                # if date_string:
-                #     date_object = datetime.strptime(date_string, '%d/%m/%Y')
-
-                #     # Get the day of the week (0 = Monday, 1 = Tuesday, ..., 6 = Sunday)
-                #     day_of_week = date_object.weekday()
-                # else:
-                #     day_of_week=""
-
-                # # Dictionary mapping day of the week to its name
-                
-                # day_mapping = {
-                #     1: "Monday",
-                #     2: "Tuesday",
-                #     3: "Wednesday",
-                #     4: "Thursday",
-                #     5: "Friday",
-                #     6: "Saturday",
-                #     7: "Sunday"
-                # }
-
-                # if date_string:
-                #     # Get the name of the day from the dictionary
-                #     day_name = day_mapping[day_of_week]
-                # print(day_name)
-
-                                
-                # Get the Script_Action_Input field from the request body
-                day_mapping = {
-                    1: "Monday",
-                    2: "Tuesday",
-                    3: "Wednesday",
-                    4: "Thursday",
-                    5: "Friday",
-                    6: "Saturday",
-                    7: "Sunday"
-                }
-                if body.get('Script_Action_Input'):
-                    script_action_input = body.get('Script_Action_Input')
-                else:
-                    script_action_input =""
-                
-                day_of_week =""
-                # Define the expected date format
-                date_format = "%d/%m/%Y"
-
-                # Check if Script_Action_Input is present and if it matches the expected format
-                if script_action_input:
-                    try:
-                        # Parse the date string into a datetime object
-                        date_object = datetime.strptime(script_action_input, date_format)
-
-                        # Get the day of the week (0 = Monday, 1 = Tuesday, ..., 6 = Sunday)
-                        day_mapping = {
-                            0: "Monday",
-                            1: "Tuesday",
-                            2: "Wednesday",
-                            3: "Thursday",
-                            4: "Friday",
-                            5: "Saturday",
-                            6: "Sunday"
-                        }
-                        day_of_week = date_object.weekday()
-
-                       
-
-                        # Get the name of the day from the dictionary
-                        day_name = day_mapping[day_of_week]
-                        print("Day of the week:", day_name)
-
-                    except ValueError:
-                        day_name=""
-                else:
-                    day_name=""
-
-
-                time_slots = []
-                day_availability = defaultdict(list)
-                for chat_script in chat_scripts_data:
-                    if 'Script_Options' in chat_script:
-                        script_options = chat_script['Script_Options']
-                        for option in script_options:
-                            if 'Script_Option_Text' in option and '{TIME_SLOTS}' in option['Script_Option_Text']:
-                                # Assuming Location_token is available in chat_script chat_script['Location_token']
-                                doctorlocations = Tbldoctorlocations.objects.filter(location_token="test_token2")
-                                if doctorlocations.exists():
-                                    # Assuming DoctorLocationSerializer is properly defined
-                                    serializer_doctorlocation = DoctorLocationSerializer(doctorlocations, many=True)
-                                    for data_item in serializer_doctorlocation.data:
-                                        doctor_location_id = data_item.get('doctor_location_id')
-
-                                        doctorlocationavailability = Tbldoctorlocationavailability.objects.filter(doctor_location_id=doctor_location_id)
-                                        if doctorlocationavailability.exists():
-                                            # Assuming DoctorLocationSerializer is properly defined
-                                            serializer_doctorlocationavailability = DoctorLocationAvailabilitySerializer(doctorlocationavailability, many=True)
-                                            
-                                            # print(serializer_doctorlocationavailability.data)
-                                            for data_item in serializer_doctorlocationavailability.data:
-                                                availability_day = data_item.get('availability_day')
-                                                day_of_week = day_mapping.get(availability_day)
-
-
-                                                
-                                                # availability_starttime = data_item.get('availability_starttime')
-                                                # availability_endtime = data_item.get('availability_endtime')
-
-                                                # availability_info = f"{day_of_week}: {availability_starttime} - {availability_endtime}"
-                                                availability_day = data_item.get('availability_day')
-                                                day_of_week = day_mapping.get(availability_day)
-
-                                                availability_starttime = data_item.get('availability_starttime')
-                                                availability_endtime = data_item.get('availability_endtime')
-
-                                                availability_info = f"{availability_starttime} - {availability_endtime}"
-
-                                                # Append the availability info to the corresponding day's list
-                                                day_availability[day_of_week].append(availability_info)
-
-                                            # Now `day_availability` dictionary will have availability info for each day
-                                            # Print or process this dictionary as needed
-                                            # for day, availability_info in day_availability.items():
-                                            #     print(f"{day}: {', '.join(availability_info)}")
-                                            #     # # Append the availability info to the time_slots list
-                                            #     if day==day_name:
-                                            #         time_slots+={', '.join(availability_info)}  #.append(availability_info)
-
-                                            #         # Join the time slots list with <br/> to create the final string
-                                            #         time_slot_text = "<br/>".join(time_slots)
-
-                                            #         # Replace {TIME_SLOTS} in the option text with the concatenated time slots
-                                            #         option['Script_Option_Text'] = option['Script_Option_Text'].replace("{TIME_SLOTS}", time_slot_text)
-                                            #     else:
-                                            #         option['Script_Option_Text'] = option['Script_Option_Text'].replace("{TIME_SLOTS}", "Please select another date")
-                                            for day, availability_info in day_availability.items():
-                                                if day_name == day:
-                                                    # print(f"{day}: {', '.join(availability_info)}")
-                                                    # updated_availability_info = []
-                                                    # for info in availability_info:
-                                                    #     start_time, end_time = info.split(" - ")
-                                                    #     start_hour = int(start_time.split(":")[0])
-                                                    #     end_hour = int(end_time.split(":")[0])
-                                                    #     start_time_period = "AM" if start_hour < 12 else "PM"
-                                                    #     end_time_period = "AM" if end_hour < 12 else "PM"
-
-                                                    #     # Adjust end time period based on whether it's the next day
-                                                    #     if start_hour > end_hour or (start_hour == end_hour and int(start_time.split(":")[1]) > int(end_time.split(":")[1])):
-                                                    #         end_time_period = "AM" if end_hour < 12 else "PM"
-
-                                                    #     updated_info = f"{start_hour if start_hour <= 12 else start_hour - 12} {start_time_period} - {end_hour if end_hour <= 12 else end_hour - 12} {end_time_period}"
-                                                    #     updated_availability_info.append(updated_info)
-
-                                                    # # Append the availability info to the time_slots list
-                                                    # time_slots.extend(updated_availability_info)
-                                                    # time_slot_text = "<br/>".join(time_slots)
-                                                    # option['Script_Option_Text'] = option['Script_Option_Text'].replace("{TIME_SLOTS}", time_slot_text)
-                                                    print(f"{day}: {', '.join(availability_info)}")
-                                                    updated_availability_info = []
-                                                    for info in availability_info:
-                                                        start_time, end_time = info.split(" - ")
-                                                        start_hour = int(start_time.split(":")[0])
-                                                        end_hour = int(end_time.split(":")[0])
-                                                        start_time_period = "AM" if start_hour < 12 else "PM"
-                                                        end_time_period = "AM" if end_hour < 12 else "PM"
-
-                                                        # Adjust end time period based on whether it's the next day
-                                                        if start_hour > end_hour or (start_hour == end_hour and int(start_time.split(":")[1]) > int(end_time.split(":")[1])):
-                                                            end_time_period = "AM" if end_hour < 12 else "PM"
-
-                                                        updated_info = f"{start_hour if start_hour <= 12 else start_hour - 12} {start_time_period} - {end_hour if end_hour <= 12 else end_hour - 12} {end_time_period}"
-                                                        updated_availability_info.append(updated_info)
-
-                                                    # Join the availability info with comma and space
-                                                    updated_availability_info = ", ".join(updated_availability_info)
-
-                                                    # Replace space followed by AM or PM with AM- or PM-
-                                                    updated_availability_info = updated_availability_info.replace(" AM", "AM").replace(" PM", "PM")
-
-                                                    # Replace comma followed by space with comma
-                                                    updated_availability_info = updated_availability_info.replace(", ", ",")
-
-                                                    # Replace comma with comma, space
-                                                    updated_availability_info = updated_availability_info.replace(",", ", ")
-
-                                                    # Append the availability info to the time_slots list
-                                                    time_slots.append(updated_availability_info)
-
-                                                    time_slots_individual = []
-
-                                                    for time_slot_concatenated in time_slots:
-                                                        # Split each concatenated time slot into individual parts
-                                                        time_slots_individual.extend(time_slot_concatenated.split(', '))
-
-                                                    # Now `time_slots_individual` will contain each time slot separately
-                                                    # for time_slot in time_slots_individual:
-                                                    # Join the time slots list with <br/> to create the final string
-                                                    # time_slot_text = "<br/>".join(time_slots)
-                                                    # time_slots_individual = time_slots.split(', ')
-                                                    for time_slot in time_slots_individual:
-                                                        script_option = {
-                                                            "Script_Option_Id": 16,
-                                                            "Script_Option_Type": 1,
-                                                            "Script_Option_Langauge": "EN",
-                                                            "Script_Option_Text": time_slot,
-                                                            "Script_Option_Value": None,
-                                                            "Script_Option_Action_Script_Id": 6,
-                                                            "created_on": None,
-                                                            "created_by": None,
-                                                            "last_modified_on": None,
-                                                            "last_modified_by": None,
-                                                            "deleted_by": None,
-                                                            "is_deleted": 0,
-                                                            "Location_token": "test_token",
-                                                            "Script_Code": 5
-                                                        }
-                                                        # Append the script option to the list
-                                                        # script_options.append(script_option)
-                                                        script_options.append(script_option)
-
-                                                    chat_script['Script_Options']=""
-                                                    chat_script['Script_Options']=script_options
-                                                    # Replace {TIME_SLOTS} in the option text with the concatenated time slots
-                                                    # option['Script_Option_Text'] = option['Script_Option_Text'].replace("{TIME_SLOTS}", str(time_slots))
-                                                else:
-                                                    option['Script_Option_Text'] = option['Script_Option_Text'].replace("{TIME_SLOTS}", "Please select another date")
-
-
-                # for chat_script in chat_scripts_data:
-                #     if 'Script_Text' in chat_script:
-                #         # Define the date and time values to replace the placeholders
-                #         date_value = "2024-02-20"  # Example date value
-                #         time_value = "10:00 AM - 11:00 AM"  # Example time value
-
-                #         # Replace the placeholders with the actual values
-                #         formatted_script_text = chat_script["Script_Text"].format(date_value, time_value)
-
-                #         # Update the chat_script dictionary with the formatted script text
-                #         chat_script["Script_Text"] = formatted_script_text
+                #chat_scripts_data.append(chat_script_data)
 
                 res = {'message_code': 1000, 'message_text': 'Response Retrieval Successfully.', 'message_data': chat_script_data, 'message_debug': [{"Debug": debug}] if debug != "" else []}
             else:
