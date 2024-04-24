@@ -19,6 +19,7 @@ import json
 from django.db import connection
 import time
 from googletrans import Translator
+import random
 
 from medicify_project.models import * 
 from medicify_project.serializers import *
@@ -420,6 +421,49 @@ def fi_get_chat_action(request):
             if UserActionSerializer.is_valid():
                 instance = UserActionSerializer.save()
                 # serialized_data = tblUserActionsSerializer(instance).data
+                if(Script_Code==9):
+                    print("add appointment")
+                     # Fetch all user actions associated with the User_Id
+                    user_actions = tblUserActions.objects.filter(User_Id=User_Id)
+                    doctor_location = Tbldoctorlocations.objects.get(location_token=Location_token)
+                    doctor_id = doctor_location.doctor_id_id  # Accessing the doctor_id field from Tbldoctorlocations
+                    print(doctor_id)
+                    Input_values=[Data.Script_Action_Input for Data in user_actions]
+                    appointment_date=Input_values[2]
+                    appointment_time=Input_values[3]
+                    appointment_name=Input_values[5]
+                    appointment_mobileno=Input_values[6]
+                    print(Input_values)
+                    print(appointment_date,appointment_time,appointment_name,appointment_mobileno)
+                
+                    # Parse time slot (assuming '8 AM to 12 AM' format)
+                    start_time, end_time = appointment_time.split(' to ')
+                    start_hour = int(start_time.split()[0])
+                    end_hour = int(end_time.split()[0])
+
+                    day, month, year = appointment_date.split("-")
+
+                    # Construct the datetime string in the desired format "YYYY-MM-DD HH:MM:SS"
+                    date_time_str = f"{year}-{month}-{day} {start_hour:02d}:00:00"
+
+                    # Print the formatted datetime string
+                    print(date_time_str)
+                 
+                    # Create a dictionary with the appointment data
+                    appointment_data = {
+                        'doctor_id': doctor_id,
+                        'appointment_mobileno': appointment_mobileno,
+                        'appointment_name': appointment_name,
+                        'appointment_datetime': date_time_str,
+                        'appointment_status': 1,
+                        'appointment_gender':'Male'
+                    }
+                    api_url="http://13.233.211.102/appointment/api/insert_appointment_data/"
+                    response=requests.post(api_url,json=appointment_data)
+                    print(response.text)
+
+                else:
+                    print("Script Code",Script_Code)
                 serialized_data = UserActionSerializer.data 
                 # print(serialized_data)
             else:
@@ -504,26 +548,23 @@ def fi_get_chat_action(request):
 
                         # Prepare leave details with structured format
                         leave_details = []
+                        valid_leave_dates = set()
+
                         for leave in doctor_leaves:
-                            epoch_time = leave.leave_date
-                            leave_date = datetime.fromtimestamp(epoch_time).date()
-                            if leave.start_time != 0 and leave.end_time != 0:  # Only include details if start_time and end_time are non-zero
-                                # Determine time suffix based on order (1: AM, 2 or 3: PM)
-                                if leave.order == 1:
-                                    time_suffix = " AM"
-                                else:
-                                    time_suffix = " PM"
-
-                                start_time_str = f"{leave.start_time}{time_suffix}"
-                                end_time_str = f"{leave.end_time}{time_suffix}"
-
+                            if leave.start_time != 0 and leave.end_time != 0:  # Only consider if start_time and end_time are non-zero
+                                leave_date = datetime.fromtimestamp(leave.leave_date).date()
+                                valid_leave_dates.add(leave_date.strftime('%d-%m-%Y'))  # Add formatted date string to the set.
+                        
+                        valid_leave_dates=list(valid_leave_dates)
+                        print(valid_leave_dates)
+                        for leave_date in valid_leave_dates:  
                                 # Construct leave detail entry
                                 leave_details.append({
                                     'Script_Option_Id': loop.Script_Option_Id,
                                     'Script_Option_Type':  1,
                                     'Script_Option_Language': loop.Script_Option_Langauge,
-                                    'Script_Option_Text': leave_date.strftime('%d-%m-%Y'),
-                                    'Script_Option_Value':  leave_date.strftime('%d-%m-%Y'),
+                                    'Script_Option_Text': leave_date,
+                                    'Script_Option_Value': leave_date,
                                     'Script_Option_Action_Script_Id': loop.Script_Option_Action_Script_Id,
                                     
                                     'Script_Code': loop.Script_Code
@@ -540,14 +581,7 @@ def fi_get_chat_action(request):
                                 day_of_week = date.weekday() + 1  # Monday is 0, so add 1 to match your day numbering
                                 availability = Tbldoctorlocationavailability.objects.filter(doctor_id=doctor_id, availability_day=day_of_week).first()
                                 if availability and availability.availability_starttime != 0 and availability.availability_endtime != 0:
-                                    if availability.availability_order == 1:
-                                        time_suffix = " AM"
-                                    else:
-                                        time_suffix = " PM"
-
-                                    start_time_str = f"{availability.availability_starttime}{time_suffix}"
-                                    end_time_str = f"{availability.availability_endtime}{time_suffix}"
-
+                                     
                                     # Construct non-leave detail entry
                                     nonleaved_dates_details.append({
                                         'Script_Option_Id': loop.Script_Option_Id,
@@ -577,12 +611,23 @@ def fi_get_chat_action(request):
 
                             try:
                                 # Parse the provided date string into a datetime object
-                                date = datetime.strptime(Script_Action_Input, "%d-%m-%Y").date()
+                                # date = datetime.strptime(Script_Action_Input, "%d-%m-%Y").date()
+                                # print(date,'date')
+                                 # Parse the date string into a datetime object
+                                date_object = datetime.strptime(Script_Action_Input, '%d-%m-%Y')
+                                print(date_object)
                             except ValueError:
                                 return Response({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=status.HTTP_400_BAD_REQUEST)
 
                             # Convert the date to a Unix timestamp (epoch time)
-                            leave_timestamp = datetime.timestamp(datetime.combine(date, datetime.min.time()))
+                            # leave_timestamp =int(datetime.timestamp(datetime.combine(date, datetime.min.time())))
+                            # print("leave_timestamp",leave_timestamp)
+                            epoch_timestamp_gmt = int(date_object.timestamp())
+    
+                            # Calculate the epoch timestamp for the start of the day (midnight) in GMT+05:30 timezone
+                            leave_timestamp = epoch_timestamp_gmt + (5 * 3600) + (30 * 60)
+                            
+                            print(leave_timestamp)
 
                             # Check if there are doctor leaves for the specified date
                             doctor_leaves = Tbldoctorleave.objects.filter(
@@ -819,9 +864,9 @@ def fi_insert_scriptoptions_bulk_record_withparam(request):
                {"Script_Code": 4, "Script_Option_Type": 5, "Script_Option_Langauge": "HI", "Script_Option_Text": "{TENDATES}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 5, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
                {"Script_Code": 4, "Script_Option_Type": 5, "Script_Option_Langauge": "MA", "Script_Option_Text": "{TENDATES}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 5, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
                
-               {"Script_Code": 5, "Script_Option_Type": 1, "Script_Option_Langauge": "EN", "Script_Option_Text": "{TIME_SLOTS}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 6, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
-               {"Script_Code": 5, "Script_Option_Type": 1, "Script_Option_Langauge": "HI", "Script_Option_Text": "{TIME_SLOTS}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 6, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
-               {"Script_Code": 5, "Script_Option_Type": 1, "Script_Option_Langauge": "MA", "Script_Option_Text": "{TIME_SLOTS}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 6, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
+               {"Script_Code": 5, "Script_Option_Type": 6, "Script_Option_Langauge": "EN", "Script_Option_Text": "{TIME_SLOTS}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 6, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
+               {"Script_Code": 5, "Script_Option_Type": 6, "Script_Option_Langauge": "HI", "Script_Option_Text": "{TIME_SLOTS}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 6, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
+               {"Script_Code": 5, "Script_Option_Type": 6, "Script_Option_Langauge": "MA", "Script_Option_Text": "{TIME_SLOTS}", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 6, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
               
                {"Script_Code": 6, "Script_Option_Type": 1, "Script_Option_Langauge": "EN", "Script_Option_Text": "MySelf", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 7, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
                {"Script_Code": 6, "Script_Option_Type": 1, "Script_Option_Langauge": "EN", "Script_Option_Text": "Family Member/Friend ", "Script_Option_Value": None, "Script_Option_Action_Script_Id": 8, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
