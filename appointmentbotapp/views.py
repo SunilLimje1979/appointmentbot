@@ -664,6 +664,7 @@ def fi_get_chat_action(request):
 
                             else:
                                 # No doctor leaves found, check doctor location availability for the day of the week
+                                date = datetime.strptime(Script_Action_Input, "%d-%m-%Y").date()
                                 day_of_week = date.weekday() + 1  # Monday is 0, so add 1 to match your day numbering
 
                                 availabilities = Tbldoctorlocationavailability.objects.filter(
