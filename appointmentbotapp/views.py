@@ -278,7 +278,8 @@ def fi_get_useraction_by_locationtoken_userid(request):
     return Response(res, status=status.HTTP_200_OK)
 
 
-###############################################################fi_check_replacement
+###############################################################
+
 
 @api_view(['POST'])
 def fi_check_replacement(request):
@@ -497,20 +498,59 @@ def fi_get_chat_action(request):
                     Script_Code=Script_Code
                 )
                 #print("line 447 else")
+                
+            # print(Location_token)
+            # print(User_Id)
+          
 
             #print("446",script_option_action_script_ids)
             if chat_scripts.exists():
                 #print("line 451")
                 chat_scripts_data = []
+                
                 for chat_script in chat_scripts:
                     start = 0
+                    
+                    if '{' in chat_script.Script_Text:
+                        while start > -1:
+                            posS = chat_script.Script_Text.find('{', start)
+                            posE = chat_script.Script_Text.find('}', start)
 
+                            if posS > -1:
+                                Var = chat_script.Script_Text[posS:posE + 1]
+                                debug = f"{posS} | {posE} | {Var}"
+                                print("Debug:", debug)
+
+                                Var = Var.replace("{", "").replace("}", "")
+                                arr = Var.split("-")
+                                print("arr:", arr)
+
+                                iData = tblUserActions.objects.filter(
+                                        Location_token=Location_token,
+                                        User_Id=User_Id,
+                                        Script_Code_id=arr[0]
+                                
+                                    ).values_list('Script_Action_Input', flat=True).first()
+                                print("iData:", iData)
+                                
+                                chat_script.Script_Text = chat_script.Script_Text.replace(
+                                                    "{" + arr[0] + "-" + arr[1] + "-" + arr[2] + "}",
+                                                    iData)
+                                print(chat_script.Script_Text)
+                                
+                                start = posE + 1
+                                
+                            else:
+                                start=-1
+                                
+                    chat_script.Script_Options = []  # Script_Options field as an empty list
+                    
                     serializer = tblChatScriptsSerializer(chat_script)
                     chat_script_data = serializer.data
                     # last_query = connection.queries[-1]['sql']
                     # print(last_query)
                     
-                    chat_script.Script_Options = []  # Script_Options field as an empty list
+                  
 
                     script_options = tblScriptOptions.objects.filter(
                     Script_Option_Langauge=Script_Option_Langauge,
@@ -791,9 +831,9 @@ def fi_insert_chatscripts_bulk_record_withparam(request):
                 {"Script_Code": 9, "Script_Type": 3, "Script_Language": "MA", "Script_Text": "<p>कृपया रुग्णाचा मोबाईल क्रमांक नमूद करा.</p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
 
                 
-                {"Script_Code": 10, "Script_Type": 0, "Script_Language": "EN", "Script_Text": "<p>Thank you,  appointment for {2-8-0} on {2-4-0} between {2-5-0} is  confirmed. Please note the token no. <strong>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
-                {"Script_Code": 10, "Script_Type": 0, "Script_Language": "HI", "Script_Text": "<p>धन्यवाद, {2-8-0} के लिए {2-4-0} को {2-5-0} के बीच मिलना तय है। कृपया टोकन नंबर नोट कर लें। <strong></strong> </p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
-                {"Script_Code": 10, "Script_Type": 0, "Script_Language": "MA", "Script_Text": "<p>धन्यवाद, {2-8-0} साठी {2-4-0} रोजी {2-5-0} दरम्यानची भेट निश्चित आहे. कृपया टोकन क्र. <strong></strong> </p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
+                {"Script_Code": 10, "Script_Type": 0, "Script_Language": "EN", "Script_Text": "<p>Thank you,  appointment for {2-8-0} on {2-4-0} between {2-5-0} is  confirmed. Please note the token no.<strong>=TOKEN</strong></p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
+                {"Script_Code": 10, "Script_Type": 0, "Script_Language": "HI", "Script_Text": "<p>धन्यवाद, {2-8-0} के लिए {2-4-0} को {2-5-0} के बीच मिलना तय है। कृपया टोकन नंबर नोट कर लें। <strong>=TOKEN</strong></p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
+                {"Script_Code": 10, "Script_Type": 0, "Script_Language": "MA", "Script_Text": "<p>धन्यवाद, {2-8-0} साठी {2-4-0} रोजी {2-5-0} दरम्यानची भेट निश्चित आहे. कृपया टोकन क्र. <strong>=TOKEN</strong></p>", "S1": 0, "S2": 0, "created_on": None, "created_by": None, "last_modified_on": None, "last_modified_by": None, "deleted_by": None, "is_deleted": 0, "Location_token": location_token},
  
 
                 
